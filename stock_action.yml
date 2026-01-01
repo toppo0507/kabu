@@ -1,0 +1,31 @@
+name: Daily Stock Screener
+
+on:
+  schedule:
+    # 毎日 日本時間 18:00 に実行する場合の設定
+    # GitHubはUTC(世界標準時)なので -9時間 します (18:00 JST = 09:00 UTC)
+    - cron: '0 9 * * 1-5'  # 月～金の 09:00 UTC に実行
+  workflow_dispatch:  # 手動実行ボタンを表示する設定
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリのチェックアウト
+        uses: actions/checkout@v3
+
+      - name: Pythonのセットアップ
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: ライブラリのインストール
+        run: |
+          pip install -r requirements.txt
+
+      - name: スクリーニング実行
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: python main.py
