@@ -1,0 +1,2 @@
+pip install pandas yfinance
+pip install xlrd
