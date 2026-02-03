@@ -82,7 +82,7 @@ def analyze_market(market_name, ticker_list, name_map, thresholds):
     # 引数をタプルにまとめる
     worker_args = [(t, thresholds) for t in ticker_list]
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         # tqdmで進捗表示
         futures = [executor.submit(fetch_stock_data, arg) for arg in worker_args]
         for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
