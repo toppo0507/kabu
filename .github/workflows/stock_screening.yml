@@ -1,0 +1,54 @@
+name: Stock Screening Job
+
+# トリガー設定
+on:
+  # 1. スケジュール実行（UTC時間で指定）
+  # 日本時間(JST)は UTC+9 なので、UTC 9:00 は JST 18:00 です。
+  # 市場が閉じてデータが更新された後の夕方に実行するのがおすすめです。
+  schedule:
+    - cron: '0 9 * * 1-5' # 月〜金の JST 18:00 に実行
+  
+  # 2. 手動実行ボタンを有効化（テスト用）
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    
+    # 日本語ロケールの設定（文字化け対策）
+    env:
+      TZ: 'Asia/Tokyo'
+
+    steps:
+      # 1. リポジトリのコードを取得
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Pythonのセットアップ
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 3. ライブラリのインストール
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. スクリプト実行
+      # ここでSecretsを環境変数として渡します
+      - name: Run screening script
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: python main.py
+
+      # 5. 生成されたCSVをGitHub Actionsの画面からダウンロードできるように保存（オプション）
+      # メールが届かなかった時の保険になります
+      - name: Upload CSV artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: screening-results
+          path: ./*.csv
+          retention-days: 5
