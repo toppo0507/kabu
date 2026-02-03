@@ -11,15 +11,37 @@ from email.mime.application import MIMEApplication
 from tqdm import tqdm
 from dotenv import load_dotenv # 追加
 
-# --- 設定：環境変数から読み込む ---
-# ローカル（Mac）にある .env ファイルを読み込む
-load_dotenv()
+import os
+from dotenv import load_dotenv
 
-# Mac(.env) または GitHub Actions(Secrets) の両方に対応
+# --- 設定：環境変数から読み込む ---
+
+# GitHub Actions 上で実行されているかチェック
+# (GitHub Actionsでは自動的に 'GITHUB_ACTIONS' という変数が 'true' になります)
+is_github = os.getenv("GITHUB_ACTIONS") == "true"
+
+if is_github:
+    print("【モード】GitHub Actions で実行中")
+    # GitHub上のSecretsから読み込まれるので、load_dotenv() は不要
+    # 必要ならここでGitHub専用の設定をする
+    output_dir = '.' 
+else:
+    print("【モード】ローカル環境 で実行中")
+    # ローカルにある .env ファイルを読み込む
+    load_dotenv()
+    # ローカル専用の設定（例：デスクトップに保存するなど）
+    # output_dir = '/Users/あなたの名前/Desktop' 
+
+# 共通の処理：変数の取得
 GMAIL_USER = os.getenv("GMAIL_USER")
 GMAIL_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
-TO_EMAIL = GMAIL_USER 
+TO_EMAIL = GMAIL_USER
 
+# 確認用（パスワードの中身は表示しないこと！）
+if GMAIL_USER:
+    print(f"ユーザー設定OK: {GMAIL_USER}")
+else:
+    print("ユーザー設定NG: 環境変数が読み込めていません")
 
 # --- 1. 日付・保存先設定 ---
 def get_today_yyyymmdd():
