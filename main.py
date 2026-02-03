@@ -25,17 +25,20 @@ if is_github:
     # GitHub上のSecretsから読み込まれるので、load_dotenv() は不要
     # 必要ならここでGitHub専用の設定をする
     output_dir = '.' 
+    GMAIL_USER = os.environ.get("GMAIL_USER")
+    GMAIL_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD")
+    TO_EMAIL = GMAIL_USER  # 自分宛て
 else:
     print("【モード】ローカル環境 で実行中")
     # ローカルにある .env ファイルを読み込む
     load_dotenv()
+    # 共通の処理：変数の取得
+    GMAIL_USER = os.getenv("GMAIL_USER")
+    GMAIL_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
+    TO_EMAIL = GMAIL_USER
     # ローカル専用の設定（例：デスクトップに保存するなど）
     # output_dir = '/Users/あなたの名前/Desktop' 
 
-# 共通の処理：変数の取得
-GMAIL_USER = os.getenv("GMAIL_USER")
-GMAIL_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
-TO_EMAIL = GMAIL_USER
 
 # 確認用（パスワードの中身は表示しないこと！）
 if GMAIL_USER:
