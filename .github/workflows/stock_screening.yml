@@ -42,7 +42,7 @@ jobs:
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-        run: python main_USA.py
+        run: python main.py
 
       # 5. 生成されたCSVをGitHub Actionsの画面からダウンロードできるように保存（オプション）
       # メールが届かなかった時の保険になります
