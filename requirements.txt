@@ -4,3 +4,4 @@ tqdm
 python-dotenv
 xlrd
 openpyxl
+lxml
