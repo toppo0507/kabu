@@ -144,22 +144,50 @@ else:
 if GMAIL_USER and GMAIL_PASSWORD:
     print("メール送信準備中...")
     msg = MIMEMultipart()
-    msg['Subject'] = f"【割安株】Score順レポート {today_date_str}"
+    msg['Subject'] = f"【厳選バリュー株】Score順レポート {today_date_str}"
     msg['From'] = GMAIL_USER
     msg['To'] = TO_EMAIL
 
-    body = "本日のスクリーニング結果（Score降順 Top 10）です。\n"
-    body += "Score = ROE / (PER * PBR)\n\n"
-    
+    # --- 変更点: HTML形式で本文を作成 ---
     if merged_df.empty:
-        body += "該当銘柄はありませんでした。"
+        html_content = "<p>該当銘柄はありませんでした。</p>"
     else:
-        # メール本文には上位10件を表示（見やすくするため）
-        body += merged_df.head(10).to_string(index=False)
-        body += "\n\n※全データは添付CSVを参照してください。"
-    
-    msg.attach(MIMEText(body, 'plain'))
+        # 上位10件をHTMLの表に変換（スタイル付き）
+        # border=1 で枠線を表示、index=False で行番号を隠す
+        # classes を指定してデザインを調整しやすくする（今回はstyle直書きで対応）
+        top_stocks_html = merged_df.head(10).to_html(
+            index=False, 
+            border=1, 
+            justify='center',
+            classes='stock_table'
+        )
+        
+        # メール本文（HTML）の組み立て
+        # スタイル設定: 表の幅を調整、セルの余白、ヘッダーの色など
+        html_content = f"""
+        <html>
+        <head>
+        <style>
+            table {{ border-collapse: collapse; width: 100%; max-width: 600px; }}
+            th, td {{ border: 1px solid #dddddd; text-align: center; padding: 8px; }}
+            th {{ background-color: #f2f2f2; color: #333; }}
+            tr:nth-child(even) {{ background-color: #f9f9f9; }}
+        </style>
+        </head>
+        <body>
+            <h3>本日のスクリーニング結果（Score降順 Top 10）</h3>
+            <p>Score = ROE / (PER * PBR)</p>
+            {top_stocks_html}
+            <br>
+            <p>※全データは添付CSVを参照してください。</p>
+        </body>
+        </html>
+        """
 
+    # ここを 'plain' ではなく 'html' に変更するのが重要
+    msg.attach(MIMEText(html_content, 'html'))
+
+    # CSV添付処理（変更なし）
     if not merged_df.empty and os.path.exists(output_path):
         with open(output_path, "rb") as f:
             part = MIMEApplication(f.read(), Name=csv_file_name)
