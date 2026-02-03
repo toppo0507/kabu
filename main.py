@@ -29,7 +29,6 @@ else:
     GMAIL_USER = os.getenv("GMAIL_USER")
     GMAIL_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
     TO_EMAIL = GMAIL_USER
-    # output_dir = '/Users/あなたの名前/Desktop' # 必要に応じて変更
 
 if GMAIL_USER:
     print(f"ユーザー設定OK: {GMAIL_USER}")
@@ -43,7 +42,7 @@ def get_today_yyyymmdd():
 today_date_str = get_today_yyyymmdd()
 
 output_dir = '.'
-csv_file_name = f'Prime_Value_Stocks_{today_date_str}.csv'
+csv_file_name = f'Magic_Formula_Stocks_{today_date_str}.csv' # ファイル名を変更
 output_path = os.path.join(output_dir, csv_file_name)
 
 # --- 2. JPXから銘柄リストを取得 ---
@@ -62,14 +61,15 @@ except Exception as e:
     exit()
 
 # --- 3. データ取得・フィルタリング関数 ---
-roe_threshold = 10
-per_threshold = 15
-pbr_threshold = 1
+# ※ここで極端な変な銘柄を弾くために、緩めの閾値で一次選抜します
+roe_threshold = 8      # ROE 8%以上（少し緩めて広く拾う）
+per_threshold = 25     # PER 25倍以下（高すぎるものを排除）
+pbr_threshold = 1.5    # PBR 1.5倍以下
 
 def fetch_and_filter(ticker):
     try:
         stock = yf.Ticker(ticker)
-        # サーバー負荷軽減のためランダム待機
+        # サーバー負荷軽減
         time.sleep(random.uniform(0.1, 0.5))
         info = stock.info
         
@@ -81,7 +81,7 @@ def fetch_and_filter(ticker):
         if roe is None or per is None or pbr is None:
             return None
 
-        # 基本的なフィルタリング
+        # 一次フィルタリング（閾値に入らないものは計算対象外にする）
         if roe > roe_threshold and per < per_threshold and pbr < pbr_threshold:
             return {
                 "Ticker": ticker,
@@ -106,7 +106,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
 
 df_filtered = pd.DataFrame(filtered_stocks)
 
-# --- 5. 結果整形・スコア計算・ソート ---
+# --- 5. 結果整形・新公式適用・ソート ---
 if not df_filtered.empty:
     result_df_key = df_filtered["Ticker"].astype(str).str.replace(".T", "", regex=False)
     merged_df = pd.merge(
@@ -117,22 +117,32 @@ if not df_filtered.empty:
         how="left"
     )
     
-    # 【追加】Score計算: Score = ROE / (PER * PBR)
-    # ゼロ除算回避のため、分母が0の場合はNaNなどにする処理を入れるのが安全ですが、
-    # フィルタリングでPBR<1, PER<15としているため通常は非ゼロの正の値と仮定して計算します。
-    merged_df["Score"] = merged_df["ROE"] / (merged_df["PER"] * merged_df["PBR"])
+    # === 新しい計算ロジック ===
     
-    # 【追加】スコアで見やすく丸める（小数点第2位まで）
-    merged_df["Score"] = merged_df["Score"].round(2)
+    # 1. ミックス係数 (Graham's Mix) = PER * PBR
+    merged_df["Mix_Coeff"] = merged_df["PER"] * merged_df["PBR"]
+    
+    # 2. 魔法の公式風スコアリング (Magic Formula Style)
+    # ROEの順位（高いほうが良い -> ascending=False）
+    merged_df["Rank_ROE"] = merged_df["ROE"].rank(ascending=False)
+    # PERの順位（低いほうが良い -> ascending=True）
+    merged_df["Rank_PER"] = merged_df["PER"].rank(ascending=True)
+    
+    # 総合スコア = ROE順位 + PER順位 （低いほうが優秀）
+    merged_df["Magic_Score"] = merged_df["Rank_ROE"] + merged_df["Rank_PER"]
+    
+    # 見やすく丸める
+    merged_df["Mix_Coeff"] = merged_df["Mix_Coeff"].round(2)
     merged_df["ROE"] = merged_df["ROE"].round(2)
     merged_df["PER"] = merged_df["PER"].round(2)
     merged_df["PBR"] = merged_df["PBR"].round(2)
 
-    # 【追加】スコアの高い順（降順）にソート
-    merged_df = merged_df.sort_values(by="Score", ascending=False)
+    # Magic_Scoreが小さい順（成績が良い順）にソート
+    merged_df = merged_df.sort_values(by="Magic_Score", ascending=True)
 
-    # カラムの並び順整理
-    merged_df = merged_df[["Ticker", "銘柄名", "Score", "PBR", "PER", "ROE"]]
+    # カラム整理（見たい指標を前に）
+    output_columns = ["Ticker", "銘柄名", "Magic_Score", "Mix_Coeff", "ROE", "PER", "PBR"]
+    merged_df = merged_df[output_columns]
     
     merged_df.to_csv(output_path, index=False, encoding='utf-8-sig')
     print(f"抽出数: {len(merged_df)}")
@@ -144,39 +154,39 @@ else:
 if GMAIL_USER and GMAIL_PASSWORD:
     print("メール送信準備中...")
     msg = MIMEMultipart()
-    msg['Subject'] = f"【厳選バリュー株】Score順レポート {today_date_str}"
+    # 件名変更
+    msg['Subject'] = f"【魔法の公式】厳選割安株レポート {today_date_str}"
     msg['From'] = GMAIL_USER
     msg['To'] = TO_EMAIL
 
-    # --- 変更点: HTML形式で本文を作成 ---
     if merged_df.empty:
         html_content = "<p>該当銘柄はありませんでした。</p>"
     else:
-        # 上位10件をHTMLの表に変換（スタイル付き）
-        # border=1 で枠線を表示、index=False で行番号を隠す
-        # classes を指定してデザインを調整しやすくする（今回はstyle直書きで対応）
-        top_stocks_html = merged_df.head(10).to_html(
+        # 上位15件を表示
+        top_stocks_html = merged_df.head(15).to_html(
             index=False, 
             border=1, 
             justify='center',
             classes='stock_table'
         )
         
-        # メール本文（HTML）の組み立て
-        # スタイル設定: 表の幅を調整、セルの余白、ヘッダーの色など
         html_content = f"""
         <html>
         <head>
         <style>
-            table {{ border-collapse: collapse; width: 100%; max-width: 600px; }}
-            th, td {{ border: 1px solid #dddddd; text-align: center; padding: 8px; }}
-            th {{ background-color: #f2f2f2; color: #333; }}
-            tr:nth-child(even) {{ background-color: #f9f9f9; }}
+            table {{ border-collapse: collapse; width: 100%; max-width: 800px; font-family: sans-serif; }}
+            th, td {{ border: 1px solid #ddd; text-align: center; padding: 8px; font-size: 14px; }}
+            th {{ background-color: #4CAF50; color: white; }}
+            tr:nth-child(even) {{ background-color: #f2f2f2; }}
+            tr:hover {{ background-color: #ddd; }}
         </style>
         </head>
         <body>
-            <h3>本日のスクリーニング結果（Score降順 Top 10）</h3>
-            <p>Score = ROE / (PER * PBR)</p>
+            <h3>本日の優良割安株（Magic Score順 Top 15）</h3>
+            <ul>
+                <li><b>Magic_Score:</b> ROE順位 + PER順位（低いほど良い）</li>
+                <li><b>Mix_Coeff:</b> PER × PBR（グレアムの指標、22.5以下が割安）</li>
+            </ul>
             {top_stocks_html}
             <br>
             <p>※全データは添付CSVを参照してください。</p>
@@ -184,10 +194,8 @@ if GMAIL_USER and GMAIL_PASSWORD:
         </html>
         """
 
-    # ここを 'plain' ではなく 'html' に変更するのが重要
     msg.attach(MIMEText(html_content, 'html'))
 
-    # CSV添付処理（変更なし）
     if not merged_df.empty and os.path.exists(output_path):
         with open(output_path, "rb") as f:
             part = MIMEApplication(f.read(), Name=csv_file_name)
