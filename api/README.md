@@ -16,7 +16,17 @@ apiを用いて株価の分析をする奴。基本的にはYahoo!Japan Finace�
 
 - https://note.com/npaka/n/n44c54312fb04
 
+### ローカル用の環境変数をコピーする
+
+```bash
+$ cp .env .env.local
+```
+
+以降は.env.localをいい感じにする。
+
 ### データを取り出す
+
+現在の設定は、日経平均に
 
 ```bash
 $ uv run --env-file .env.local main.py --mode download
