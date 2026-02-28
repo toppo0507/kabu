@@ -1,0 +1,3 @@
+api/.env.local
+api/src/__pycache__
+api/src/data/*.
