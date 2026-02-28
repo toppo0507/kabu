@@ -26,10 +26,16 @@ $ cp .env .env.local
 
 ### データを取り出す
 
-現在の設定は、日経平均に
+現在の設定は、日経平均のチャートをダウンロード
 
 ```bash
-$ uv run --env-file .env.local main.py --mode download
+$ uv run --env-file .env.local main.py --mode d_chart
+```
+
+環境変数に指定した企業の株式指数（PERとか）をダウンロードする
+
+```bash
+$ uv run --env-file .env.local main.py --mode d_indi
 ```
 
 ### ダウンロードしたデータを分析
